@@ -1,0 +1,260 @@
+let Source = Folder.Files("SOURCE HERE"),
+    #"Filtered Rows" = Table.SelectRows(Source, let latest = List.Max(Source[Date created]) in each [Date created] = latest),
+    #"Removed Other Columns" = Table.SelectColumns(#"Filtered Rows", {
+		"Content"
+	}),
+	#"Added Custom" = Table.AddColumn(#"Removed Other Columns", "Custom", each Excel.Workbook([Content])),
+	#"Expanded Custom" = Table.ExpandTableColumn(#"Added Custom", "Custom", {
+		"Name",
+		"Data",
+		"Item",
+		"Kind",
+		"Hidden"
+	}, {
+		"Custom.Name",
+		"Custom.Data",
+		"Custom.Item",
+		"Custom.Kind",
+		"Custom.Hidden"
+	}),
+	#"Removed Other Columns1" = Table.SelectColumns(#"Expanded Custom", {
+		"Custom.Data"
+	}),
+	#"Expanded Custom.Data" = Table.ExpandTableColumn(#"Removed Other Columns1", "Custom.Data", {
+		"Column1",
+		"Column2",
+		"Column3",
+		"Column4",
+		"Column5",
+		"Column6",
+		"Column7",
+		"Column8",
+		"Column9",
+		"Column10",
+		"Column11",
+		"Column12",
+		"Column13",
+		"Column14",
+		"Column15",
+		"Column16",
+		"Column17",
+		"Column18",
+		"Column19",
+		"Column20",
+		"Column21",
+		"Column22",
+		"Column23",
+		"Column24",
+		"Column25",
+		"Column26",
+		"Column27",
+		"Column28",
+		"Column29",
+		"Column30",
+		"Column31",
+		"Column32",
+		"Column33",
+		"Column34",
+		"Column35",
+		"Column36",
+		"Column37",
+		"Column38",
+		"Column39",
+		"Column40",
+		"Column41",
+		"Column42",
+		"Column43",
+		"Column44",
+		"Column45",
+		"Column46",
+		"Column47",
+		"Column48",
+		"Column49",
+		"Column50",
+		"Column51",
+		"Column52",
+		"Column53",
+		"Column54",
+		"Column55",
+		"Column56",
+		"Column57",
+		"Column58",
+		"Column59",
+		"Column60"
+	}, {
+		"Column1",
+		"Column2",
+		"Column3",
+		"Column4",
+		"Column5",
+		"Column6",
+		"Column7",
+		"Column8",
+		"Column9",
+		"Column10",
+		"Column11",
+		"Column12",
+		"Column13",
+		"Column14",
+		"Column15",
+		"Column16",
+		"Column17",
+		"Column18",
+		"Column19",
+		"Column20",
+		"Column21",
+		"Column22",
+		"Column23",
+		"Column24",
+		"Column25",
+		"Column26",
+		"Column27",
+		"Column28",
+		"Column29",
+		"Column30",
+		"Column31",
+		"Column32",
+		"Column33",
+		"Column34",
+		"Column35",
+		"Column36",
+		"Column37",
+		"Column38",
+		"Column39",
+		"Column40",
+		"Column41",
+		"Column42",
+		"Column43",
+		"Column44",
+		"Column45",
+		"Column46",
+		"Column47",
+		"Column48",
+		"Column49",
+		"Column50",
+		"Column51",
+		"Column52",
+		"Column53",
+		"Column54",
+		"Column55",
+		"Column56",
+		"Column57",
+		"Column58",
+		"Column59",
+		"Column60"
+	}),
+	#"Removed Columns" = Table.RemoveColumns(#"Expanded Custom.Data", {
+		"Column2",
+		"Column3",
+		"Column4",
+		"Column5",
+		"Column6",
+		"Column7",
+		"Column8",
+		"Column9"
+	}),
+	#"Transposed Table" = Table.Transpose(#"Removed Columns"),
+	#"Filled Down" = Table.FillDown(#"Transposed Table", {
+		"Column1"
+	}),
+	#"Replaced Value" = Table.ReplaceValue(#"Filled Down", null, "Question", Replacer.ReplaceValue, {
+		"Column2"
+	}),
+    #"Merged Columns" = Table.CombineColumns(#"Replaced Value",{"Column1", "Column2"},Combiner.CombineTextByDelimiter(" - ", QuoteStyle.None),"Headers"),
+    #"Transposed Table1" = Table.Transpose(#"Merged Columns"),
+	#"Promoted Headers1" = Table.PromoteHeaders(#"Transposed Table1"),
+	RemoveComments =
+	let RemoveComments = List.Select(Table.ColumnNames(#"Promoted Headers1"), each Text.Contains(_, "Comment")) in Table.RemoveColumns(#"Promoted Headers1", RemoveComments),
+		NewAnswerHeaders = List.Transform(Table.ColumnNames(RemoveComments), (ColumnName) => {
+			ColumnName,
+			try Splitter.SplitTextByAnyDelimiter({
+				" - Question",
+				" - Response"
+			})(ColumnName) {
+				0
+			}
+			otherwise ColumnName
+		}),
+		#"Renamed Question Headers" = Table.RenameColumns(RemoveComments, NewAnswerHeaders),
+		ShortAnswerHeader = List.Transform(Table.ColumnNames(#"Renamed Question Headers"), (ColumnName) => {
+			ColumnName,
+			try Splitter.SplitTextByAnyDelimiter({
+				" - "
+			})(ColumnName) {
+				1
+			}
+			otherwise ColumnName
+		}),
+		#"Renamed Question Headers 2" = Table.RenameColumns(#"Renamed Question Headers", ShortAnswerHeader),
+		#"Unpivoted Answers" = Table.UnpivotOtherColumns(#"Renamed Question Headers 2", {
+			"Respondent ID",
+			"Site Name",
+			"Date",
+			"Auditor",
+			"Site Rep"
+		}, "Question", "Answer"),
+		#"UID Answers" = Table.AddColumn(#"Unpivoted Answers", "UID Answers", each Number.ToText([Respondent ID]) & [Question]),
+		#"RemoveAnswersPrep" = Table.RenameColumns(#"Promoted Headers1", {
+			"Respondent ID - Question",
+			"Respondent ID - Comment"
+		}),
+		RemoveAnswers =
+		let RemoveAnswers = List.Select(Table.ColumnNames(#"RemoveAnswersPrep"), each not Text.Contains(_, "Comment")) in Table.RemoveColumns(#"RemoveAnswersPrep", RemoveAnswers),
+			NewCommentHeaders = List.Transform(Table.ColumnNames(RemoveAnswers), (ColumnName) => {
+				ColumnName,
+				try Splitter.SplitTextByAnyDelimiter({
+					" - Comment"
+				})(ColumnName) {
+					0
+				}
+				otherwise ColumnName
+			}),
+			#"Renamed Comment Headers" = Table.RenameColumns(RemoveAnswers, NewCommentHeaders),
+			#"Unpivoted Comments" = Table.UnpivotOtherColumns(#"Renamed Comment Headers", {
+				"Respondent ID"
+			}, "Question", "Comment"),
+			#"UID Comments" = Table.AddColumn(#"Unpivoted Comments", "UID Comments", each Number.ToText([Respondent ID]) & [Question]),
+			#"Merged Unpivoted" = Table.NestedJoin(#"UID Answers", {
+				"UID Answers"
+			}, #"UID Comments", {
+				"UID Comments"
+			}, "Comments Table", JoinKind.LeftOuter),
+			#"Expanded Comments Table" = Table.ExpandTableColumn(#"Merged Unpivoted", "Comments Table", {
+				"Comment"
+			}, {
+				"Comment"
+			}),
+			#"Removed Columns2" = Table.RemoveColumns(#"Expanded Comments Table", {
+				"UID Answers"
+			}),
+			#"Added Conditional Column" = Table.AddColumn(#"Removed Columns2", "Answer Numeric", each
+				if [Answer] = "Yes"
+				then "1"
+				else if [Answer] = "No"
+				then "0"
+				else if [Answer] = "Strongly Disagree"
+				then "0.2"
+				else if [Answer] = "Disagree"
+				then "0.4"
+				else if [Answer] = "Neutral"
+				then "0.6"
+				else if [Answer] = "Agree"
+				then "0.8"
+				else if [Answer] = "Strongly Agree"
+				then "1"
+				else if [Answer] = "N/A"
+				then "0"
+				else null),
+			#"Added Conditional Column1" = Table.AddColumn(#"Added Conditional Column", "Max Score", each
+				if [Answer] = "N/A"
+				then "0"
+				else "1"),
+    #"Changed Type" = Table.TransformColumnTypes(#"Added Conditional Column1",{{"Answer Numeric", type number}, {"Max Score", type number}}),
+    #"Changed Type with Locale" = Table.TransformColumnTypes(#"Changed Type", {{"Date", type date}}, "en-US"),
+    #"Added Conditional Column2" = Table.AddColumn(#"Changed Type with Locale", "Classification", each if [Question] = "Helpdesk" then "Information" else if [Question] = "Smartnet Portal" then "Information" else if [Question] = "Certification" then "Information" else if [Question] = "Health & Safety" then "Information" else if Text.Contains([Question], "information") then "Information" else if [Question] = "Planned Work" then "M&E" else if [Question] = "Reactive Work" then "M&E" else if [Question] = "Quoted Work" then "M&E" else if Text.Contains([Question], "M&E") then "M&E" else if [Question] = "Grass cutting" then "Landscaping" else if [Question] = "Hedge Rows" then "Landscaping" else if [Question] = "Weeding" then "Landscaping" else if [Question] = "Bushes & Plants" then "Landscaping" else if [Question] = "Litter" then "Landscaping" else if [Question] = "Internal Plants" then "Landscaping" else if Text.Contains([Question], "Landscaping") then "Landscaping" else if [Question] = "Toilets" then "Cleaning" else if [Question] = "Break Out Areas" then "Cleaning" else if [Question] = "Reception Area" then "Cleaning" else if [Question] = "Carpets" then "Cleaning" else if [Question] = "Windows" then "Cleaning" else if [Question] = "Worktops" then "Cleaning" else if [Question] = "Offices" then "Cleaning" else if [Question] = "Dusting" then "Cleaning" else if [Question] = "Warehouse" then "Cleaning" else if Text.Contains([Question], "Cleaning") then "Cleaning" else if [Question] = "Feminine Hygiene" then "Washroom" else if [Question] = "Vending" then "Washroom" else if Text.Contains([Question], "Washroom") then "Washroom" else if [Question] = "Rodents" then "Pest Control" else if [Question] = "Birds" then "Pest Control" else if [Question] = "Insects" then "Pest Control" else if Text.Contains([Question], "Pest Control") then "Pest Control" else if Text.Contains([Question], "attitude") then "General" else if Text.Contains([Question], "speed") then "General" else if Text.Contains([Question], "overall service") then "General" else if Text.Contains([Question], "recommend") then "General" else null ),
+    #"Added Conditional Column3" = Table.AddColumn(#"Added Conditional Column2", "Target Score", each if [Max Score] = 1 then "0.85" else "0" ),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Added Conditional Column3",{{"Target Score", type number}}),
+    #"Added Custom1" = Table.AddColumn(#"Changed Type1", "Contract", each "DHL"),
+    #"Added Custom2" = Table.AddColumn(#"Added Custom1", "Contract and Location", each [Contract]&" - "&[Site Name])
+in
+    #"Added Custom2"
