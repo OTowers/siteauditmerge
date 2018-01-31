@@ -1,0 +1,8 @@
+let
+    Source = Excel.Workbook(File.Contents("G:\01. Logistics\.Performance & Governance\Reports\Data\Site Audits\DHL\2016 DHL Site Audit.xlsx"), null, true),
+    #"Filtered Rows" = Table.SelectRows(Source, each ([Kind] = "Table")),
+    #"Removed Other Columns" = Table.SelectColumns(#"Filtered Rows",{"Data"}),
+    #"Expanded Data" = Table.ExpandTableColumn(#"Removed Other Columns", "Data", {"Contract", "Site Name", "Date", "Max Score", "Answer Numeric", "Auditor", "Site Rep", "Target Score", "Contract and Location"}, {"Contract", "Site Name", "Date", "Max Score", "Answer Numeric", "Auditor", "Site Rep", "Target Score", "Contract and Location"}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Expanded Data",{{"Date", type date}, {"Max Score", type number}, {"Answer Numeric", type number}, {"Target Score", type number}})
+in
+    #"Changed Type"
